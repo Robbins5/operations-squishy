@@ -127,13 +127,105 @@
               </div>
               <div class="dossier__row"><dt>MISSION:</dt><dd data-config="missionName">OPERATION SQUISHY</dd></div>
               <div class="dossier__row"><dt>PROJECT:</dt><dd data-config="projectName">PROJECT INDEPENDENCE</dd></div>
-              <div class="dossier__row"><dt>STATUS:</dt><dd>PENDING AGENT AUTHORIZATION</dd></div>
+              <div class="dossier__row"><dt>STATUS:</dt><dd>PENDING LEVEL 11 CLEARANCE REVIEW</dd></div>
             </dl>
 
             <button type="button" class="btn btn--primary" id="btnReviewAuthorization">
-              REVIEW PROJECT AUTHORIZATION
+              BEGIN CLEARANCE REVIEW
             </button>
           </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           LEVEL 11 CLEARANCE REVIEW
+           ============================================================ -->
+      <section class="screen" id="screen-clearance-review" data-screen="clearance-review" hidden>
+        <h2 class="sr-only">Level 11 Clearance Review</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="clearanceIntroLines" aria-live="polite"></div>
+
+          <form id="clearanceForm" class="clearance-checklist" hidden novalidate>
+            <fieldset class="clearance-checklist__fieldset">
+              <legend class="sr-only">Agent readiness evaluation checklist</legend>
+
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="pants" />
+                <span>Agent wears pants in public</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="room" />
+                <span>Agent keeps room reasonably clean</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="laundry" />
+                <span>Agent understands that dirty laundry does not self-destruct</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="diaper" />
+                <span>Agent wears a diaper</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="lunch" />
+                <span>Agent packs their own lunch</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="xray" />
+                <span>Agent has X-ray vision</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="belongings" />
+                <span>Agent takes care of personal belongings</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="snacks" />
+                <span>Agent is capable of locating snacks</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="height" />
+                <span>Agent is at least 2 feet tall</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="shoes" />
+                <span>Agent can locate both shoes in under 60 seconds</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="remote" />
+                <span>Agent has successfully located the TV remote without adult assistance</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="hygiene" />
+                <span>Agent showers and brushes teeth regularly</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="squirrels" />
+                <span>Agent has not been recruited by squirrels</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="bedtime" />
+                <span>Agent has not attempted to negotiate a later bedtime with Headquarters</span>
+              </label>
+              <label class="clearance-checklist__item">
+                <input type="checkbox" name="clearanceItem" value="annoy" />
+                <span>Agent does not intentionally annoy Headquarters*</span>
+              </label>
+            </fieldset>
+
+            <p class="clearance-checklist__footnote">*Results subject to verification.</p>
+
+            <button type="submit" class="btn btn--primary" id="btnSubmitEvaluation">
+              SUBMIT EVALUATION
+            </button>
+          </form>
+
+          <div class="terminal-lines terminal-lines--feedback" id="clearanceResultLines" aria-live="polite"></div>
+
+          <div class="stamp stamp--end" id="clearanceApprovedStamp" aria-hidden="true" hidden>APPROVED</div>
+
+          <button type="button" class="btn btn--primary" id="btnViewAssignment" hidden>
+            VIEW ASSIGNMENT
+          </button>
         </div>
       </section>
 

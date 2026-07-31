@@ -496,6 +496,66 @@ button {
 }
 
 /* --------------------------------------------------------------------------
+   CLEARANCE REVIEW CHECKLIST — touch-friendly, wraps cleanly, no new colors
+   -------------------------------------------------------------------------- */
+.clearance-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.clearance-checklist[hidden] {
+  display: none;
+}
+
+.clearance-checklist__fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.clearance-checklist__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0.4em 0;
+  cursor: pointer;
+  color: var(--color-text-bright);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.clearance-checklist__item input[type="checkbox"] {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin: 0.1em 0 0;
+  accent-color: var(--color-amber);
+  cursor: pointer;
+}
+
+.clearance-checklist__item span {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.clearance-checklist.is-disabled .clearance-checklist__item {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.clearance-checklist__footnote {
+  color: var(--color-text-dim);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* --------------------------------------------------------------------------
    INVESTIGATION ACTIONS — reuses .btn; only adds spacing between choices
    -------------------------------------------------------------------------- */
 .investigation-actions {

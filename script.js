@@ -53,6 +53,12 @@ const recoveryState = {
   stage: 'directive-1', // 'directive-1' | 'directive-2' | 'directive-3' | 'signal'
 };
 
+const clearanceReviewState = {
+  selectedItems: [], // values of currently-checked checklist items
+  submitted: false,  // whether SUBMIT EVALUATION has been pressed
+  approved: false,   // whether the evaluation sequence has fully completed
+};
+
 const INTELLIGENCE_BRIEFS = [
   'Its usefulness depends less on its physical size than on the systems and information it can access.',
   'This equipment is commonly issued when an agent begins operating with greater independence.',
@@ -323,6 +329,7 @@ function setPrimaryButtonsDisabled(disabled) {
     'btnEquipmentLocated',
     'btnEquipmentNotLocated',
     'btnEquipmentRecovered',
+    'btnViewAssignment',
   ].forEach((id) => {
     const btn = qs(id);
     if (btn) btn.disabled = disabled;
@@ -472,6 +479,125 @@ async function runProfileScreen(resume) {
   }
 
   cardEl.hidden = false;
+}
+
+/* --------------------------------------------------------------------------
+   SCENE — LEVEL 11 CLEARANCE REVIEW
+   -------------------------------------------------------------------------- */
+async function runClearanceReviewScreen(resume) {
+  showScreen('clearance-review');
+  setConnectionStatus(true);
+
+  const introEl = qs('clearanceIntroLines');
+  const formEl = qs('clearanceForm');
+  const resultEl = qs('clearanceResultLines');
+  const stampEl = qs('clearanceApprovedStamp');
+  const viewBtn = qs('btnViewAssignment');
+
+  clearLines(introEl);
+  clearLines(resultEl);
+  stampEl.hidden = true;
+  viewBtn.hidden = true;
+  formEl.hidden = true;
+  formEl.classList.remove('is-disabled');
+
+  await typeLines(
+    introEl,
+    [
+      { text: 'LEVEL 11 CLEARANCE REVIEW', tone: 'amber', pauseAfter: 500 },
+      { text: 'AGENT READINESS EVALUATION', tone: 'dim', pauseAfter: 300 },
+      { text: 'Headquarters requires confirmation of the following operational capabilities.', pauseAfter: 600 },
+    ],
+    { instant: resume }
+  );
+
+  if (clearanceReviewState.submitted) {
+    // Already submitted (e.g. after a refresh) — show the approved result
+    // instantly instead of replaying the full evaluation sequence.
+    await runClearanceEvaluationSequence(true);
+    return;
+  }
+
+  formEl.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.checked = clearanceReviewState.selectedItems.includes(input.value);
+    input.disabled = false;
+  });
+  qs('btnSubmitEvaluation').disabled = false;
+
+  formEl.hidden = false;
+}
+
+async function runClearanceEvaluationSequence(instant) {
+  const formEl = qs('clearanceForm');
+  const resultEl = qs('clearanceResultLines');
+  const stampEl = qs('clearanceApprovedStamp');
+  const viewBtn = qs('btnViewAssignment');
+
+  formEl.hidden = true;
+  clearLines(resultEl);
+  stampEl.hidden = true;
+  viewBtn.hidden = true;
+
+  await typeLines(
+    resultEl,
+    [
+      { text: 'PROCESSING EVALUATION...', pauseAfter: 500 },
+      { text: 'VERIFYING OPERATIONAL READINESS...', pauseAfter: 500 },
+      { text: 'REVIEWING PERSONNEL RECORD...', pauseAfter: 500 },
+      { text: 'CLEARANCE BOARD DECISION...', pauseAfter: 1100 },
+    ],
+    { instant }
+  );
+
+  await typeLines(
+    resultEl,
+    [
+      { text: 'RESPONSIBILITY REVIEW', tone: 'amber', pauseAfter: 300 },
+      { text: 'COMPLETE', tone: 'amber', pauseAfter: 400 },
+      { text: 'RESULT:', tone: 'dim', pauseAfter: 200 },
+      { text: 'PASS', tone: 'amber', pauseAfter: 700 },
+    ],
+    { instant }
+  );
+
+  if (!instant) sounds.success();
+
+  await typeLines(
+    resultEl,
+    [
+      { text: 'LEVEL 11 CLEARANCE', tone: 'amber', pauseAfter: 300 },
+      { text: 'AUTHORIZED', tone: 'amber', pauseAfter: 400 },
+      { text: 'STATUS:', tone: 'dim', pauseAfter: 200 },
+      { text: 'MISSION READY', tone: 'amber', pauseAfter: 600 },
+    ],
+    { instant }
+  );
+
+  stampEl.hidden = false;
+
+  const agent = MISSION_CONFIG.agentName;
+  await typeLines(
+    resultEl,
+    [
+      { text: `Welcome, Agent ${agent}.`, pauseAfter: 600 },
+      {
+        text: `Headquarters has determined that you have demonstrated the responsibility required to begin ${MISSION_CONFIG.projectName}.`,
+        pauseAfter: 600,
+      },
+      { text: 'Your first official assignment is now available.', pauseAfter: 600 },
+    ],
+    { instant }
+  );
+
+  clearanceReviewState.approved = true;
+  saveProgress('clearance-review', {
+    started: true,
+    selectedItems: clearanceReviewState.selectedItems,
+    submitted: true,
+    approved: true,
+  });
+
+  viewBtn.hidden = false;
 }
 
 /* --------------------------------------------------------------------------
@@ -906,6 +1032,64 @@ function wireStaticListeners() {
     'click',
     withLock(async () => {
       sounds.confirm();
+      clearanceReviewState.selectedItems = [];
+      clearanceReviewState.submitted = false;
+      clearanceReviewState.approved = false;
+      saveProgress('clearance-review', { started: true, selectedItems: [], submitted: false, approved: false });
+      await runClearanceReviewScreen(false);
+    })
+  );
+
+  qs('clearanceForm').addEventListener('change', (event) => {
+    if (event.target.name !== 'clearanceItem') return;
+    const value = event.target.value;
+    if (event.target.checked) {
+      if (!clearanceReviewState.selectedItems.includes(value)) {
+        clearanceReviewState.selectedItems.push(value);
+      }
+    } else {
+      clearanceReviewState.selectedItems = clearanceReviewState.selectedItems.filter((v) => v !== value);
+    }
+    saveProgress('clearance-review', {
+      started: true,
+      selectedItems: clearanceReviewState.selectedItems,
+      submitted: false,
+      approved: false,
+    });
+  });
+
+  qs('clearanceForm').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (state.isAnimating) return;
+    state.isAnimating = true;
+    setPrimaryButtonsDisabled(true);
+
+    const formEl = qs('clearanceForm');
+    formEl.classList.add('is-disabled');
+    formEl.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+      input.disabled = true;
+    });
+    qs('btnSubmitEvaluation').disabled = true;
+
+    clearanceReviewState.submitted = true;
+    saveProgress('clearance-review', {
+      started: true,
+      selectedItems: clearanceReviewState.selectedItems,
+      submitted: true,
+      approved: false,
+    });
+
+    sounds.confirm();
+    await runClearanceEvaluationSequence(false);
+
+    state.isAnimating = false;
+    setPrimaryButtonsDisabled(false);
+  });
+
+  qs('btnViewAssignment').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
       saveProgress('authorization');
       await runAuthorizationScreen(false);
     })
@@ -1054,6 +1238,12 @@ function boot() {
       break;
     case 'profile':
       runProfileScreen(true);
+      break;
+    case 'clearance-review':
+      clearanceReviewState.selectedItems = Array.isArray(saved.selectedItems) ? saved.selectedItems : [];
+      clearanceReviewState.submitted = Boolean(saved.submitted);
+      clearanceReviewState.approved = Boolean(saved.approved);
+      runClearanceReviewScreen(true);
       break;
     case 'authorization':
       setConnectionStatus(true);
