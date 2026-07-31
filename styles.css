@@ -337,6 +337,10 @@ button {
   transition: background var(--duration-fast) ease, color var(--duration-fast) ease, opacity var(--duration-fast) ease, transform var(--duration-fast) ease;
 }
 
+.btn[hidden] {
+  display: none;
+}
+
 .btn:hover:not(:disabled) {
   background: rgba(169, 232, 187, 0.08);
 }
@@ -455,6 +459,10 @@ button {
   gap: var(--space-3);
 }
 
+.auth-form[hidden] {
+  display: none;
+}
+
 .auth-form__label {
   color: var(--color-text-dim);
   letter-spacing: 0.1em;
@@ -478,6 +486,26 @@ button {
 .auth-form__input::placeholder {
   letter-spacing: normal;
   font-size: 1rem;
+}
+
+.auth-form__input--text {
+  letter-spacing: 0.04em;
+  font-size: 1.1rem;
+  text-align: left;
+  text-transform: none;
+}
+
+/* --------------------------------------------------------------------------
+   INVESTIGATION ACTIONS — reuses .btn; only adds spacing between choices
+   -------------------------------------------------------------------------- */
+.investigation-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.investigation-actions[hidden] {
+  display: none;
 }
 
 /* --------------------------------------------------------------------------

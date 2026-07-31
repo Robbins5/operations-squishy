@@ -18,10 +18,20 @@ const MISSION_CONFIG = {
   projectName: 'Project Independence',
   clearanceCode: '08052015', // 8-digit access code — compared in JS only, never rendered
   handlerNames: 'Mom & Dad',
-  typingSpeed: 26,           // ms per typed character (before animationSpeed scaling)
+  typingSpeed: 42,           // ms per typed character (before animationSpeed scaling) — tuned for a younger/less confident reader
   animationSpeed: 1,         // multiplier applied to all scripted delays (1 = normal speed)
   soundEnabled: true,        // master switch for the optional Web Audio beep system
+  defaultLinePauseMs: 900,   // minimum pause after any typed line with no explicit pauseAfter
+  longLinePauseMs: 2200,     // minimum pause after any typed line longer than longLineCharThreshold
+  longLineCharThreshold: 90, // character count above which longLinePauseMs applies
 };
+
+/* --------------------------------------------------------------------------
+   PHYSICAL RECOVERY — ZONE DELAY
+   Gives the player time to walk into the recovery area before Headquarters
+   "detects" the equipment and begins the signal acquisition sequence.
+   -------------------------------------------------------------------------- */
+const RECOVERY_ZONE_DELAY_MS = 20000;
 
 /* --------------------------------------------------------------------------
    RUNTIME STATE
@@ -34,6 +44,73 @@ const state = {
   skipAnimations: false,
   soundOn: MISSION_CONFIG.soundEnabled,
 };
+
+const investigationState = {
+  briefIndex: 1, // 1-based index of the most recently decrypted intelligence brief
+};
+
+const recoveryState = {
+  stage: 'directive-1', // 'directive-1' | 'directive-2' | 'directive-3' | 'signal'
+};
+
+const INTELLIGENCE_BRIEFS = [
+  'Its usefulness depends less on its physical size than on the systems and information it can access.',
+  'This equipment is commonly issued when an agent begins operating with greater independence.',
+  'It will recognize its assigned agent through facial recognition before granting access.',
+  'This equipment continuously reports its location, allowing Headquarters to assist its assigned agent if needed.',
+  'It serves several purposes, although communication with Headquarters is among the most important.',
+  'It can securely store photographs, messages, schedules, entertainment, and intelligence.',
+];
+
+const RECOVERY_DIRECTIVE_1 = [
+  { text: 'HEADQUARTERS', tone: 'amber', pauseAfter: 400 },
+  { text: 'Our records indicate the equipment never left your residence.', pauseAfter: 500 },
+  { text: 'Begin by searching the area where the agent gets dressed each day.', pauseAfter: 500 },
+  { text: 'Report back if the equipment cannot be located.', pauseAfter: 600 },
+];
+
+const RECOVERY_DIRECTIVE_2 = [
+  { text: 'HEADQUARTERS', tone: 'amber', pauseAfter: 400 },
+  { text: 'Negative.', tone: 'red', pauseAfter: 400 },
+  {
+    text: 'A secondary review of surveillance indicates the equipment was relocated after initial placement.',
+    pauseAfter: 500,
+  },
+  {
+    text: 'The most recent activity suggests movement toward the primary operations area where agents eat.',
+    pauseAfter: 500,
+  },
+  { text: 'Continue your search.', pauseAfter: 600 },
+];
+
+const RECOVERY_DIRECTIVE_3 = [
+  { text: 'HEADQUARTERS', tone: 'amber', pauseAfter: 400 },
+  { text: 'No visual confirmation.', tone: 'red', pauseAfter: 400 },
+  { text: 'Stand by...', tone: 'dim', pauseAfter: 500 },
+  { text: 'Reviewing additional data...', tone: 'dim', pauseAfter: 500 },
+  {
+    text: 'Recent movement indicates the equipment was handled near an area used for watching TV.',
+    pauseAfter: 600,
+  },
+];
+
+const RECOVERY_SAFETY_MESSAGE = [
+  { text: 'HEADQUARTERS', tone: 'amber', pauseAfter: 400 },
+  { text: 'Unexpected result.', tone: 'red', pauseAfter: 400 },
+  { text: 'Headquarters expected the equipment to be located elsewhere.', pauseAfter: 500 },
+  { text: 'Continue your search.', pauseAfter: 600 },
+];
+
+const ACCEPTED_EQUIPMENT_ANSWERS = new Set(['phone', 'cell phone', 'cellphone', 'mobile phone', 'smartphone', 'iphone']);
+
+const EQUIPMENT_WRONG_MESSAGES = [
+  'THE AVAILABLE INTELLIGENCE DOES NOT SUPPORT THAT CONCLUSION.',
+  'EQUIPMENT IDENTIFICATION INCORRECT.',
+  'HEADQUARTERS RECOMMENDS REVIEWING THE AVAILABLE INTELLIGENCE.',
+  'THE CLASSIFIED EQUIPMENT HAS NOT YET BEEN IDENTIFIED.',
+];
+
+let wrongEquipmentGuessCount = 0;
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -140,6 +217,17 @@ const sounds = {
    Honors skip-animation mode and prefers-reduced-motion by rendering
    instantly instead of character-by-character.
    -------------------------------------------------------------------------- */
+function resolveLinePause(line) {
+  const explicitOrDefault = line.pauseAfter != null ? line.pauseAfter : MISSION_CONFIG.defaultLinePauseMs;
+  const minimumRequired =
+    line.text.length > MISSION_CONFIG.longLineCharThreshold
+      ? MISSION_CONFIG.longLinePauseMs
+      : MISSION_CONFIG.defaultLinePauseMs;
+  // Never let an explicitly-authored pause undercut the reading-time floor,
+  // but always preserve one that's already longer than that floor.
+  return Math.max(explicitOrDefault, minimumRequired);
+}
+
 async function typeLines(container, lines, options) {
   const opts = options || {};
   const instant = state.skipAnimations || prefersReducedMotion || opts.instant;
@@ -163,7 +251,7 @@ async function typeLines(container, lines, options) {
       el.classList.remove('terminal-line--typing');
     }
 
-    const pause = line.pauseAfter != null ? line.pauseAfter : 380;
+    const pause = resolveLinePause(line);
     await sleep(instant ? 60 : scaledDelay(pause));
   }
 }
@@ -223,7 +311,19 @@ function applyConfigToDom() {
    running so a double-tap can't skip ahead of an in-progress animation.
    -------------------------------------------------------------------------- */
 function setPrimaryButtonsDisabled(disabled) {
-  ['btnEstablishConnection', 'btnVerifyCode', 'btnReviewAuthorization', 'btnAcknowledge'].forEach((id) => {
+  [
+    'btnEstablishConnection',
+    'btnVerifyCode',
+    'btnReviewAuthorization',
+    'btnAcknowledge',
+    'btnBeginInvestigation',
+    'btnRequestIntel',
+    'btnTransmitId',
+    'btnAcceptRecovery',
+    'btnEquipmentLocated',
+    'btnEquipmentNotLocated',
+    'btnEquipmentRecovered',
+  ].forEach((id) => {
     const btn = qs(id);
     if (btn) btn.disabled = disabled;
   });
@@ -408,18 +508,325 @@ async function runAuthorizationScreen(resume) {
 }
 
 /* --------------------------------------------------------------------------
-   SCENE — TEMPORARY END-OF-PHASE-1 SCREEN
+   SCENE — CASE FILE (investigation briefing)
    -------------------------------------------------------------------------- */
-async function runPhaseEndScreen(resume) {
-  showScreen('phase-end');
+async function runCaseFileScreen(resume) {
+  showScreen('case-file');
 
-  const linesEl = qs('phaseEndLines');
+  const linesEl = qs('caseFileLines');
+  const btn = qs('btnBeginInvestigation');
   clearLines(linesEl);
+  btn.hidden = true;
+
   await typeLines(
     linesEl,
     [
-      { text: 'PHASE ONE COMPLETE', tone: 'amber', pauseAfter: 500 },
-      { text: 'CLASSIFIED CASE FILE AWAITING DEVELOPMENT', tone: 'dim' },
+      { text: 'CASE FILE 011', tone: 'amber', pauseAfter: 500 },
+      { text: MISSION_CONFIG.missionName.toUpperCase(), pauseAfter: 500 },
+      { text: 'OBJECTIVE:', tone: 'dim', pauseAfter: 200 },
+      { text: 'IDENTIFY THE CLASSIFIED FIELD EQUIPMENT AUTHORIZED FOR ASSIGNMENT.', pauseAfter: 500 },
+      { text: 'INTELLIGENCE BRIEFS AVAILABLE:', tone: 'dim', pauseAfter: 200 },
+      { text: '6', pauseAfter: 500 },
+      { text: 'STATUS:', tone: 'dim', pauseAfter: 200 },
+      { text: 'CLASSIFIED', tone: 'amber', pauseAfter: 700 },
+    ],
+    { instant: resume }
+  );
+
+  btn.hidden = false;
+}
+
+/* --------------------------------------------------------------------------
+   SCENE — INVESTIGATION (intelligence briefs + equipment identification)
+   -------------------------------------------------------------------------- */
+async function renderCurrentBrief(instant) {
+  const progressLinesEl = qs('briefProgressLines');
+  const progressEl = qs('briefProgress');
+  const fillEl = qs('briefProgressFill');
+  const linesEl = qs('briefLines');
+  const actionsEl = qs('briefActions');
+  const requestBtn = qs('btnRequestIntel');
+
+  const index = investigationState.briefIndex;
+
+  clearLines(progressLinesEl);
+  clearLines(linesEl);
+  actionsEl.hidden = true;
+
+  progressEl.hidden = false;
+  progressEl.setAttribute('aria-valuenow', String(index));
+  fillEl.style.width = `${Math.round((index / INTELLIGENCE_BRIEFS.length) * 100)}%`;
+
+  await typeLines(
+    progressLinesEl,
+    [
+      { text: 'INTELLIGENCE BRIEFS DECRYPTED', tone: 'dim', pauseAfter: 150 },
+      { text: `${index} / ${INTELLIGENCE_BRIEFS.length}`, tone: 'amber', pauseAfter: 400 },
+    ],
+    { instant }
+  );
+
+  const briefBlock = [
+    { text: `BRIEF 0${index}`, tone: 'amber', pauseAfter: 300 },
+    { text: INTELLIGENCE_BRIEFS[index - 1], pauseAfter: 500 },
+  ];
+  if (index >= INTELLIGENCE_BRIEFS.length) {
+    briefBlock.push(
+      { text: 'FINAL INTELLIGENCE REPORT', tone: 'amber', pauseAfter: 400 },
+      { text: 'THIS DEVICE MAY RING, BUT IT IS NOT A BELL.', pauseAfter: 500 }
+    );
+  }
+  if (index === 1) {
+    briefBlock.push(
+      { text: 'HEADQUARTERS DIRECTIVE', tone: 'amber', pauseAfter: 400 },
+      { text: 'Agent Jace,', pauseAfter: 400 },
+      {
+        text: 'Based on the available intelligence, determine whether sufficient evidence exists to identify the classified field equipment.',
+        pauseAfter: 450,
+      },
+      { text: 'If additional information is required, unlock the next intelligence brief.', pauseAfter: 450 },
+      { text: 'If you believe the equipment has been identified, submit your response to Headquarters.', pauseAfter: 600 }
+    );
+  }
+  await typeLines(linesEl, briefBlock, { instant });
+
+  requestBtn.hidden = index >= INTELLIGENCE_BRIEFS.length;
+  actionsEl.hidden = false;
+}
+
+async function runInvestigationScene(resume) {
+  showScreen('investigation');
+
+  qs('identifyForm').hidden = true;
+  qs('identifyInput').value = '';
+  clearLines(qs('identifyIntroLines'));
+  clearLines(qs('identifyFeedback'));
+
+  await renderCurrentBrief(resume);
+}
+
+function normalizeEquipmentGuess(raw) {
+  const cleaned = raw
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.replace(/^(a|an|the)\s+/, '');
+}
+
+async function handleIdentifySubmit(event) {
+  event.preventDefault();
+  if (state.isAnimating) return;
+
+  const input = qs('identifyInput');
+  const btn = qs('btnSubmitIdentification');
+  const feedback = qs('identifyFeedback');
+  const guess = normalizeEquipmentGuess(input.value);
+  const isCorrect = ACCEPTED_EQUIPMENT_ANSWERS.has(guess);
+
+  state.isAnimating = true;
+  input.disabled = true;
+  btn.disabled = true;
+  clearLines(feedback);
+
+  sounds.confirm();
+  await typeLines(feedback, [
+    { text: 'TRANSMITTING RESPONSE...', pauseAfter: 450 },
+    { text: 'ESTABLISHING SECURE LINK...', pauseAfter: 450 },
+    { text: 'HEADQUARTERS REVIEWING SUBMISSION...', pauseAfter: 800 },
+  ]);
+
+  if (isCorrect) {
+    sounds.success();
+    await typeLines(feedback, [
+      { text: 'ANALYZING IDENTIFICATION...', pauseAfter: 500 },
+      { text: 'COMPARING EQUIPMENT SPECIFICATIONS...', pauseAfter: 500 },
+      { text: 'IDENTIFICATION CONFIRMED.', tone: 'amber', pauseAfter: 700 },
+    ]);
+    state.isAnimating = false;
+    saveProgress('equipment', { briefIndex: investigationState.briefIndex });
+    runEquipmentScene();
+  } else {
+    sounds.error();
+    const message = EQUIPMENT_WRONG_MESSAGES[wrongEquipmentGuessCount % EQUIPMENT_WRONG_MESSAGES.length];
+    wrongEquipmentGuessCount += 1;
+    await typeLines(feedback, [{ text: message, tone: 'red' }]);
+    input.value = '';
+    input.disabled = false;
+    btn.disabled = false;
+    input.focus();
+    state.isAnimating = false;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   SCENE — EQUIPMENT IDENTIFICATION CONFIRMED
+   -------------------------------------------------------------------------- */
+function runEquipmentScene() {
+  showScreen('equipment');
+  qs('equipmentCard').hidden = false;
+}
+
+/* --------------------------------------------------------------------------
+   SCENE — PHYSICAL RECOVERY MISSION
+   Three Headquarters directives (each choosing EQUIPMENT LOCATED / EQUIPMENT
+   NOT LOCATED) followed by an automatic, timed signal acquisition sequence.
+   Kept modular: one small render function per stage, dispatched by
+   recoveryState.stage so each directive's behavior stays independent.
+   -------------------------------------------------------------------------- */
+async function runRecoveryDirective1(instant) {
+  const linesEl = qs('recoveryPendingLines');
+  const actionsEl = qs('recoveryActions');
+  qs('btnEquipmentRecovered').hidden = true;
+
+  clearLines(linesEl);
+  actionsEl.hidden = true;
+  await typeLines(linesEl, RECOVERY_DIRECTIVE_1, { instant });
+  actionsEl.hidden = false;
+}
+
+async function runRecoveryDirective2(instant) {
+  const linesEl = qs('recoveryPendingLines');
+  const actionsEl = qs('recoveryActions');
+  qs('btnEquipmentRecovered').hidden = true;
+
+  clearLines(linesEl);
+  actionsEl.hidden = true;
+  await typeLines(linesEl, RECOVERY_DIRECTIVE_2, { instant });
+  actionsEl.hidden = false;
+}
+
+async function runRecoveryDirective3(instant) {
+  const linesEl = qs('recoveryPendingLines');
+  const actionsEl = qs('recoveryActions');
+  actionsEl.hidden = true;
+  qs('btnEquipmentRecovered').hidden = true;
+
+  clearLines(linesEl);
+  await typeLines(linesEl, RECOVERY_DIRECTIVE_3, { instant });
+
+  // No buttons here — Headquarters silently begins the signal acquisition
+  // sequence after RECOVERY_ZONE_DELAY_MS. This real-world wait is
+  // intentionally independent of the typing/instant-resume state above,
+  // since its purpose is real-world walking time, not UI pacing.
+  await sleep(state.skipAnimations ? 600 : RECOVERY_ZONE_DELAY_MS);
+
+  recoveryState.stage = 'signal';
+  saveProgress('recovery-pending', {
+    briefIndex: investigationState.briefIndex,
+    recoveryStage: 'signal',
+  });
+  await runSignalAcquisitionSequence(false);
+}
+
+async function runSignalAcquisitionSequence(resume) {
+  const linesEl = qs('recoveryPendingLines');
+  const actionsEl = qs('recoveryActions');
+  const recoveredBtn = qs('btnEquipmentRecovered');
+
+  actionsEl.hidden = true;
+  recoveredBtn.hidden = true;
+  clearLines(linesEl);
+
+  await typeLines(
+    linesEl,
+    [
+      { text: 'HEADQUARTERS', tone: 'amber', pauseAfter: 400 },
+      { text: `Excellent work, Agent ${MISSION_CONFIG.agentName}.`, tone: 'amber', pauseAfter: 500 },
+      { text: 'Your investigation has narrowed the search to the immediate recovery zone.', pauseAfter: 600 },
+      { text: 'Stand by...', tone: 'dim', pauseAfter: 500 },
+      { text: 'Attempting secure communication with the authorized equipment...', pauseAfter: 600 },
+      { text: 'Searching...', tone: 'dim', pauseAfter: 500 },
+      { text: 'Searching...', tone: 'dim', pauseAfter: 700 },
+      { text: 'SIGNAL STRENGTH', tone: 'amber', pauseAfter: 300 },
+    ],
+    { instant: resume }
+  );
+
+  const signalReadings = ['12%', '31%', '64%', '89%'];
+  for (let i = 0; i < signalReadings.length; i += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await typeLines(linesEl, [{ text: signalReadings[i], pauseAfter: 350 }], { instant: resume });
+    if (!resume) sounds.tick();
+  }
+
+  if (!resume) sounds.success();
+  await typeLines(
+    linesEl,
+    [
+      { text: 'SIGNAL ACQUIRED.', tone: 'amber', pauseAfter: 600 },
+      { text: 'Initiating encrypted location ping.', pauseAfter: 500 },
+      { text: 'Listen carefully.', tone: 'amber' },
+    ],
+    { instant: resume }
+  );
+
+  // Intentionally does not auto-continue — remains on this screen until
+  // the player presses EQUIPMENT RECOVERED.
+  recoveredBtn.hidden = false;
+}
+
+async function runRecoveryPendingScene(resume) {
+  showScreen('recovery-pending');
+
+  switch (recoveryState.stage) {
+    case 'directive-2':
+      await runRecoveryDirective2(resume);
+      break;
+    case 'directive-3':
+      await runRecoveryDirective3(resume);
+      break;
+    case 'signal':
+      await runSignalAcquisitionSequence(resume);
+      break;
+    case 'directive-1':
+    default:
+      await runRecoveryDirective1(resume);
+      break;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   SCENE — MISSION COMPLETE
+   -------------------------------------------------------------------------- */
+async function runMissionCompleteScene(resume) {
+  showScreen('mission-complete');
+
+  const linesEl = qs('missionCompleteLines');
+  clearLines(linesEl);
+
+  if (!resume) sounds.success();
+
+  await typeLines(
+    linesEl,
+    [
+      { text: 'VERIFYING RECOVERY...', pauseAfter: 500 },
+      { text: 'SCANNING EQUIPMENT...', pauseAfter: 500 },
+      { text: 'SIGNAL DETECTED...', pauseAfter: 500 },
+      { text: 'DEVICE REGISTRATION CONFIRMED...', pauseAfter: 500 },
+      { text: 'MISSION SUCCESSFUL.', tone: 'amber', pauseAfter: 700 },
+
+      { text: MISSION_CONFIG.missionName.toUpperCase(), tone: 'amber', pauseAfter: 300 },
+      { text: 'STATUS:', tone: 'dim', pauseAfter: 200 },
+      { text: 'COMPLETE', tone: 'amber', pauseAfter: 600 },
+
+      { text: MISSION_CONFIG.projectName.toUpperCase(), tone: 'amber', pauseAfter: 300 },
+      { text: 'STATUS:', tone: 'dim', pauseAfter: 200 },
+      { text: 'ACTIVATED', tone: 'amber', pauseAfter: 700 },
+
+      { text: `Congratulations, Agent ${MISSION_CONFIG.agentName}.`, pauseAfter: 600 },
+      { text: 'You successfully completed your first mission.', pauseAfter: 600 },
+      { text: 'Your first piece of authorized field equipment has now been issued.', pauseAfter: 600 },
+      { text: 'Use it wisely.', pauseAfter: 500 },
+      { text: 'Respond when Headquarters contacts you.', pauseAfter: 600 },
+      { text: 'With greater independence comes greater responsibility.', pauseAfter: 900 },
+
+      { text: 'HAPPY 11TH BIRTHDAY!', tone: 'amber', pauseAfter: 600 },
+      { text: '— YOUR HANDLERS', pauseAfter: 300 },
+      { text: MISSION_CONFIG.handlerNames.toUpperCase(), pauseAfter: 800 },
+
+      { text: 'MISSION STATUS', tone: 'dim', pauseAfter: 200 },
+      { text: 'COMPLETE', tone: 'amber' },
     ],
     { instant: resume }
   );
@@ -508,8 +915,113 @@ function wireStaticListeners() {
     'click',
     withLock(async () => {
       sounds.confirm();
-      saveProgress('phase-end');
-      await runPhaseEndScreen(false);
+      saveProgress('case-file');
+      await runCaseFileScreen(false);
+    })
+  );
+
+  qs('btnBeginInvestigation').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
+      investigationState.briefIndex = 1;
+      saveProgress('investigation', { briefIndex: 1 });
+      await runInvestigationScene(false);
+    })
+  );
+
+  qs('btnRequestIntel').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
+      if (investigationState.briefIndex < INTELLIGENCE_BRIEFS.length) {
+        investigationState.briefIndex += 1;
+      }
+      saveProgress('investigation', { briefIndex: investigationState.briefIndex });
+
+      // Close the response-entry area if it was left open. This never reads
+      // or submits the input's current value — it only resets the panel.
+      qs('identifyForm').hidden = true;
+      qs('identifyInput').value = '';
+      clearLines(qs('identifyIntroLines'));
+      clearLines(qs('identifyFeedback'));
+
+      await renderCurrentBrief(false);
+    })
+  );
+
+  qs('btnTransmitId').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
+
+      // Only opens the response-entry area — UNLOCK NEXT INTELLIGENCE BRIEF
+      // must remain available so the agent can back out to another brief.
+      const introEl = qs('identifyIntroLines');
+      clearLines(introEl);
+      await typeLines(introEl, [
+        { text: 'HEADQUARTERS REQUEST', tone: 'amber', pauseAfter: 400 },
+        { text: 'Agent Jace,', pauseAfter: 400 },
+        { text: 'Based on the available intelligence...', pauseAfter: 450 },
+        { text: 'Identify the classified field equipment.', pauseAfter: 500 },
+      ]);
+
+      qs('identifyForm').hidden = false;
+      qs('identifyInput').value = '';
+      qs('identifyInput').focus();
+    })
+  );
+
+  qs('identifyForm').addEventListener('submit', handleIdentifySubmit);
+
+  qs('btnAcceptRecovery').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
+      recoveryState.stage = 'directive-1';
+      saveProgress('recovery-pending', { briefIndex: investigationState.briefIndex, recoveryStage: 'directive-1' });
+      await runRecoveryPendingScene(false);
+    })
+  );
+
+  qs('btnEquipmentNotLocated').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
+      if (recoveryState.stage === 'directive-1') {
+        recoveryState.stage = 'directive-2';
+      } else if (recoveryState.stage === 'directive-2') {
+        recoveryState.stage = 'directive-3';
+      }
+      saveProgress('recovery-pending', {
+        briefIndex: investigationState.briefIndex,
+        recoveryStage: recoveryState.stage,
+      });
+      await runRecoveryPendingScene(false);
+    })
+  );
+
+  qs('btnEquipmentLocated').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
+      // Safety-net path only — keeps the mission from breaking if the
+      // player reports the equipment located too early. Does not advance
+      // recoveryState, so progress is unaffected.
+      const linesEl = qs('recoveryPendingLines');
+      const actionsEl = qs('recoveryActions');
+      actionsEl.hidden = true;
+      await typeLines(linesEl, RECOVERY_SAFETY_MESSAGE);
+      actionsEl.hidden = false;
+    })
+  );
+
+  qs('btnEquipmentRecovered').addEventListener(
+    'click',
+    withLock(async () => {
+      sounds.confirm();
+      saveProgress('mission-complete', { briefIndex: investigationState.briefIndex });
+      await runMissionCompleteScene(false);
     })
   );
 
@@ -547,9 +1059,30 @@ function boot() {
       setConnectionStatus(true);
       runAuthorizationScreen(true);
       break;
-    case 'phase-end':
+    case 'case-file':
       setConnectionStatus(true);
-      runPhaseEndScreen(true);
+      runCaseFileScreen(true);
+      break;
+    case 'investigation':
+      setConnectionStatus(true);
+      investigationState.briefIndex = saved.briefIndex || 1;
+      runInvestigationScene(true);
+      break;
+    case 'equipment':
+      setConnectionStatus(true);
+      investigationState.briefIndex = saved.briefIndex || INTELLIGENCE_BRIEFS.length;
+      runEquipmentScene();
+      break;
+    case 'recovery-pending':
+      setConnectionStatus(true);
+      investigationState.briefIndex = saved.briefIndex || INTELLIGENCE_BRIEFS.length;
+      recoveryState.stage = saved.recoveryStage || 'directive-1';
+      runRecoveryPendingScene(true);
+      break;
+    case 'mission-complete':
+      setConnectionStatus(true);
+      investigationState.briefIndex = saved.briefIndex || INTELLIGENCE_BRIEFS.length;
+      runMissionCompleteScene(true);
       break;
     default:
       showScreen('landing');

@@ -153,14 +153,123 @@
       </section>
 
       <!-- ============================================================
-           TEMPORARY END-OF-PHASE-1 SCREEN
+           CASE FILE — investigation briefing
            ============================================================ -->
-      <section class="screen" id="screen-phase-end" data-screen="phase-end" hidden>
-        <h2 class="sr-only">Phase One Complete</h2>
+      <section class="screen" id="screen-case-file" data-screen="case-file" hidden>
+        <h2 class="sr-only">Classified Case File</h2>
 
-        <div class="panel panel--terminal panel--phase-end">
-          <div class="terminal-lines" id="phaseEndLines" aria-live="polite"></div>
-          <div class="stamp stamp--end" aria-hidden="true">FILE PENDING</div>
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="caseFileLines" aria-live="polite"></div>
+
+          <button type="button" class="btn btn--primary" id="btnBeginInvestigation" hidden>
+            BEGIN INVESTIGATION
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           INVESTIGATION — intelligence briefs + equipment identification
+           ============================================================ -->
+      <section class="screen" id="screen-investigation" data-screen="investigation" hidden>
+        <h2 class="sr-only">Classified Equipment Investigation</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="briefProgressLines" aria-live="polite"></div>
+
+          <div class="progress" id="briefProgress" role="progressbar" aria-label="Intelligence briefs decrypted"
+               aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" hidden>
+            <div class="progress__fill" id="briefProgressFill"></div>
+          </div>
+
+          <div class="terminal-lines" id="briefLines" aria-live="polite"></div>
+
+          <div class="investigation-actions" id="briefActions" hidden>
+            <button type="button" class="btn btn--primary" id="btnTransmitId">
+              SUBMIT AGENT RESPONSE
+            </button>
+            <button type="button" class="btn btn--ghost" id="btnRequestIntel">
+              UNLOCK NEXT INTELLIGENCE BRIEF
+            </button>
+          </div>
+
+          <div class="terminal-lines" id="identifyIntroLines" aria-live="polite"></div>
+
+          <form class="auth-form" id="identifyForm" hidden novalidate>
+            <label class="sr-only" for="identifyInput">Equipment identification response</label>
+            <input
+              type="text"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              id="identifyInput"
+              class="auth-form__input auth-form__input--text"
+              aria-describedby="identifyFeedback"
+            />
+            <button type="submit" class="btn btn--primary" id="btnSubmitIdentification">
+              VERIFY RESPONSE
+            </button>
+          </form>
+
+          <div class="terminal-lines terminal-lines--feedback" id="identifyFeedback" aria-live="assertive"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           EQUIPMENT IDENTIFICATION CONFIRMED
+           ============================================================ -->
+      <section class="screen" id="screen-equipment" data-screen="equipment" hidden>
+        <h2 class="sr-only">Equipment Identification Confirmed</h2>
+
+        <div class="panel panel--terminal">
+          <div class="dossier" id="equipmentCard" hidden>
+            <div class="dossier__stamp" aria-hidden="true">CONFIRMED</div>
+            <dl class="dossier__list">
+              <div class="dossier__row"><dt>CLASSIFIED FIELD EQUIPMENT</dt><dd>PERSONAL COMMUNICATION DEVICE</dd></div>
+              <div class="dossier__row"><dt>COMMON DESIGNATION</dt><dd>CELL PHONE</dd></div>
+              <div class="dossier__row"><dt>EQUIPMENT AUTHORIZATION</dt><dd>APPROVED</dd></div>
+              <div class="dossier__row"><dt>ASSIGNED AGENT</dt><dd data-config="agentName">JACE</dd></div>
+              <div class="dossier__row"><dt>STATUS</dt><dd>AWAITING PHYSICAL RECOVERY</dd></div>
+            </dl>
+
+            <button type="button" class="btn btn--primary" id="btnAcceptRecovery">
+              ACCEPT RECOVERY MISSION
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           PHYSICAL RECOVERY MISSION
+           ============================================================ -->
+      <section class="screen" id="screen-recovery-pending" data-screen="recovery-pending" hidden>
+        <h2 class="sr-only">Physical Recovery Mission</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="recoveryPendingLines" aria-live="polite"></div>
+
+          <div class="investigation-actions" id="recoveryActions" hidden>
+            <button type="button" class="btn btn--primary" id="btnEquipmentLocated">
+              EQUIPMENT LOCATED
+            </button>
+            <button type="button" class="btn btn--ghost" id="btnEquipmentNotLocated">
+              EQUIPMENT NOT LOCATED
+            </button>
+          </div>
+
+          <button type="button" class="btn btn--primary" id="btnEquipmentRecovered" hidden>
+            EQUIPMENT RECOVERED
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           MISSION COMPLETE
+           ============================================================ -->
+      <section class="screen" id="screen-mission-complete" data-screen="mission-complete" hidden>
+        <h2 class="sr-only">Mission Complete</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="missionCompleteLines" aria-live="polite"></div>
         </div>
       </section>
 
