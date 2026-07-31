@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>Operation Squishy — Secure Terminal</title>
+  <meta name="description" content="Classified terminal access — Project Independence." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+
+  <!-- Decorative CRT scanline / vignette overlay. Purely visual, never announced. -->
+  <div class="crt-overlay" aria-hidden="true"></div>
+
+  <div class="app" id="app">
+
+    <header class="topbar">
+      <span class="topbar__brand">OPERATION&nbsp;SQUISHY</span>
+      <span class="topbar__status" id="connectionStatus" data-state="offline">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="connectionStatusText">LINE OFFLINE</span>
+      </span>
+    </header>
+
+    <main class="terminal" id="terminal">
+
+      <!-- ============================================================
+           SCREEN 1 — SECURE TERMINAL LANDING
+           ============================================================ -->
+      <section class="screen" id="screen-landing" data-screen="landing">
+        <h2 class="sr-only">Secure Terminal Landing</h2>
+
+        <div class="panel panel--landing">
+          <div class="stamp" aria-hidden="true">CLASSIFIED</div>
+
+          <p class="eyebrow">CLASSIFIED BIRTHDAY BRIEFING</p>
+
+          <dl class="brief-meta">
+            <div class="brief-meta__row">
+              <dt>MISSION:</dt>
+              <dd data-config="missionName">OPERATION SQUISHY</dd>
+            </div>
+            <div class="brief-meta__row">
+              <dt>PROJECT:</dt>
+              <dd data-config="projectName">PROJECT INDEPENDENCE</dd>
+            </div>
+          </dl>
+
+          <p class="clearance-warning">LEVEL 11 CLEARANCE REQUIRED</p>
+          <p class="red-warning">UNAUTHORIZED CIVILIANS MUST EXIT THE AREA</p>
+
+          <button type="button" class="btn btn--primary" id="btnEstablishConnection">
+            ESTABLISH SECURE CONNECTION
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SCREEN 2 — INITIALIZATION SEQUENCE
+           ============================================================ -->
+      <section class="screen" id="screen-init" data-screen="init" hidden>
+        <h2 class="sr-only">Initialization Sequence</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="initLines" aria-live="polite"></div>
+
+          <div class="progress" id="initProgress" role="progressbar" aria-label="Connection progress"
+               aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+            <div class="progress__fill" id="initProgressFill"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SCREEN 3 — CLEARANCE-CODE AUTHENTICATION
+           ============================================================ -->
+      <section class="screen" id="screen-auth" data-screen="auth" hidden>
+        <h2 class="sr-only">Identity Verification</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="authIntroLines" aria-live="polite"></div>
+
+          <form class="auth-form" id="authForm" novalidate>
+            <label class="auth-form__label" for="clearanceInput">ENTER YOUR 8-DIGIT CLEARANCE CODE</label>
+            <input
+              type="tel"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              maxlength="8"
+              id="clearanceInput"
+              class="auth-form__input"
+              aria-describedby="authFeedback"
+            />
+            <button type="submit" class="btn btn--primary" id="btnVerifyCode">
+              VERIFY CLEARANCE CODE
+            </button>
+          </form>
+
+          <div class="terminal-lines terminal-lines--feedback" id="authFeedback" aria-live="assertive"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           SCREEN 4 & 5 — AGENT IDENTIFICATION / PROFILE
+           ============================================================ -->
+      <section class="screen" id="screen-profile" data-screen="profile" hidden>
+        <h2 class="sr-only">Agent Personnel File</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="profileIntroLines" aria-live="polite"></div>
+
+          <div class="dossier" id="profileCard" hidden>
+            <div class="dossier__stamp" aria-hidden="true">APPROVED</div>
+            <dl class="dossier__list">
+              <div class="dossier__row"><dt>AGENT NAME:</dt><dd data-config="agentName">JACE</dd></div>
+              <div class="dossier__row"><dt>CURRENT CLEARANCE:</dt><dd>LEVEL 10</dd></div>
+              <div class="dossier__row"><dt>CLEARANCE REVIEW:</dt><dd>APPROVED</dd></div>
+              <div class="dossier__row">
+                <dt>NEW CLEARANCE:</dt>
+                <dd>
+                  <span id="parentResetTarget" class="reset-tap-target">LEVEL 11</span>
+                </dd>
+              </div>
+              <div class="dossier__row"><dt>MISSION:</dt><dd data-config="missionName">OPERATION SQUISHY</dd></div>
+              <div class="dossier__row"><dt>PROJECT:</dt><dd data-config="projectName">PROJECT INDEPENDENCE</dd></div>
+              <div class="dossier__row"><dt>STATUS:</dt><dd>PENDING AGENT AUTHORIZATION</dd></div>
+            </dl>
+
+            <button type="button" class="btn btn--primary" id="btnReviewAuthorization">
+              REVIEW PROJECT AUTHORIZATION
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           PROJECT AUTHORIZATION
+           ============================================================ -->
+      <section class="screen" id="screen-authorization" data-screen="authorization" hidden>
+        <h2 class="sr-only">Project Authorization Briefing</h2>
+
+        <div class="panel panel--terminal">
+          <div class="terminal-lines" id="authorizationLines" aria-live="polite"></div>
+
+          <button type="button" class="btn btn--primary" id="btnAcknowledge" hidden>
+            ACKNOWLEDGE BRIEFING
+          </button>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           TEMPORARY END-OF-PHASE-1 SCREEN
+           ============================================================ -->
+      <section class="screen" id="screen-phase-end" data-screen="phase-end" hidden>
+        <h2 class="sr-only">Phase One Complete</h2>
+
+        <div class="panel panel--terminal panel--phase-end">
+          <div class="terminal-lines" id="phaseEndLines" aria-live="polite"></div>
+          <div class="stamp stamp--end" aria-hidden="true">FILE PENDING</div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <button type="button" class="btn btn--ghost" id="btnSkip" aria-pressed="false">
+        SKIP ANIMATIONS (TEST)
+      </button>
+      <button type="button" class="btn btn--ghost" id="btnSound" aria-pressed="true">
+        <span id="soundBtnLabel">SOUND ON</span>
+      </button>
+    </footer>
+
+  </div>
+
+  <script src="./script.js" defer></script>
+</body>
+</html>
