@@ -60,7 +60,7 @@ const clearanceReviewState = {
 };
 
 const INTELLIGENCE_BRIEFS = [
-  'Its usefulness depends less on its physical size than on the systems and information it can access.',
+  'It is small but knows everything.',
   'This equipment is commonly issued when an agent begins operating with greater independence.',
   'It will recognize its assigned agent through facial recognition before granting access.',
   'This equipment continuously reports its location, allowing Headquarters to assist its assigned agent if needed.',
